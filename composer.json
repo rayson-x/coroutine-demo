@@ -1,0 +1,10 @@
+{
+  "require": {
+    "ant-framework/http":"dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "Coroutine\\": "./"
+    }
+  }
+}
