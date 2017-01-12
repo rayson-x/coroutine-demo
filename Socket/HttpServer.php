@@ -56,8 +56,18 @@ class HttpServer
             }
 
             if(false !== stripos($buffer,"\r\n\r\n")) {
-                yield newTask($this->handleData($connection,$buffer));
-                $buffer = '';
+                list($header) = explode("\r\n\r\n",$buffer,2);
+
+                $packLen = strlen($buffer);
+                if (substr($header,0,3) != 'GET' && preg_match("/\r\nContent-Length: ?(\d+)/i", $header, $match)) {
+                    $packLen = $match[1] + $packLen + 4;
+                }
+
+                if($packLen <= strlen($buffer)){
+                    // 接收到一个完整的Http请求
+                    yield newTask($this->handleData($connection,substr($buffer,0,$packLen)));
+                    $buffer = substr($buffer,$packLen + 1);
+                }
             }
 
             yield waitForRead($connection->getSocket());
