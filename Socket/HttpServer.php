@@ -52,7 +52,7 @@ class HttpServer
 
         $start = microtime(true);
         $request = Request::createFromRequestStr($buffer);
-        $response = new Response();
+        $response = Response::prepare($request);
         $response->keepImmutability(false);
 
         if($this->onMessage) {
