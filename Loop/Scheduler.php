@@ -52,6 +52,10 @@ class Scheduler
      */
     protected function ioPoll($timeout)
     {
+        if(empty($this->waitingForRead) && empty($this->waitingForWrite)){
+            return;
+        }
+
         $rSocks = [];
         $wSocks = [];
         $eSocks = [];
@@ -79,7 +83,6 @@ class Scheduler
             unset($this->waitingForRead[(int) $socket]);
 
             foreach ($tasks as $task) {
-                // 切换上下文
                 $this->schedule($task);
             }
         }

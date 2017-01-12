@@ -34,12 +34,23 @@ function newTask(\Generator $coroutine)
     );
 }
 
+function endTask()
+{
+    return new SystemCall(
+        function(Task $task, Scheduler $scheduler) {
+            var_dump($task->getTaskId());
+        }
+    );
+}
+
 $scheduler = new Scheduler();
 $httpServer = new HttpServer($scheduler);
 $httpServer->listen(8000);
 $httpServer->onMessage = function(\Ant\Http\Request $req, \Ant\Http\Response $res)
 {
-    $res->write("hello world");
+    $res->setType('json')
+        ->setContent(['foo' => 'bar'])
+        ->decorate();
 };
 
 $scheduler->run();
