@@ -67,7 +67,7 @@ class Scheduler
         }
 
         //获取已经准备好的任务
-        if (!stream_select($rSocks, $wSocks, $eSocks, $timeout)) {
+        if (!@stream_select($rSocks, $wSocks, $eSocks, $timeout)) {
             return;
         }
 
@@ -79,7 +79,6 @@ class Scheduler
             unset($this->waitingForRead[(int) $socket]);
 
             foreach ($tasks as $task) {
-                // 切换上下文
                 $this->schedule($task);
             }
         }

@@ -4,6 +4,7 @@ namespace Coroutine\Socket;
 use Ant\Http\Request;
 use Ant\Http\Response;
 use Coroutine\Loop\Scheduler;
+use Coroutine\Loop\SystemCall;
 
 class HttpServer
 {
@@ -35,41 +36,62 @@ class HttpServer
         while (true) {
             yield waitForRead($socket);
             $clientSocket = stream_socket_accept($socket, 0);
-            stream_set_blocking($clientSocket, 0);
-            yield newTask($this->handleData($clientSocket));
+            $connection = new Connection($clientSocket);
+            yield newTask($this->handleBuffer($connection));
         }
     }
 
-    protected function handleData($socket)
+    protected function handleBuffer(Connection $connection)
     {
+        // Todo::连接池,保存socket句柄,每次有input都创建一个新任务去处理
         // Todo::监听句柄不退出任务队列
         // Todo::连接超时,一定时间内没进行IO的连接自动关闭
-        $buffer = '';
-        do{
-            yield waitForRead($socket);
-            $buffer .= fread($socket, 8192);
-        } while(false === stripos($buffer,"\r\n\r\n"));
 
+        $buffer = '';
+        while(true) {
+            if($connection->isClose || feof($connection->getSocket())){
+                $connection->close();
+                yield new SystemCall(function(){});
+                break;
+            }
+
+            if(false === stripos($buffer,"\r\n\r\n")) {
+                yield waitForRead($connection->getSocket());
+                $buffer .= $connection->read(8092);
+            }else{
+                yield newTask($this->handleData($connection,$buffer));
+                $buffer = '';
+            }
+        }
+    }
+
+    /**
+     * @param $connection
+     * @param $buffer
+     * @return \Generator
+     */
+    protected function handleData(Connection $connection,$buffer)
+    {
         $start = microtime(true);
         $request = Request::createFromRequestStr($buffer);
-        $response = new Response();
-        $response->keepImmutability(false);
+        $response = Response::prepare($request)->keepImmutability(false);
 
         if($this->onMessage) {
             $result = call_user_func($this->onMessage,$request,$response);
             if($result instanceof \Generator) {
-                do{
-                    $value = (yield $result->current());
-                    $result->send($value);
-                } while($result->valid());
+                while($result->valid()){
+                    $result->send(yield $result->current());
+                }
             }
-        } else {
-            $response->write("hello world");
         }
 
-        $response->withHeader('x-run-time',(int)((microtime(true) - $start) * 1000).'ms');
-        yield waitForWrite($socket);
-        fwrite($socket, (string)$response);
-        fclose($socket);
+        $response->addHeaderFromIterator([
+            'x-run-time' => (((microtime(true) - $start) * 10000)/10).'ms',
+            'server' => 'coroutine-framework',
+            'connection'=> 'keep-alive'
+        ]);
+
+        $connection->write((string)$response);
+        $connection->close();
     }
 }
