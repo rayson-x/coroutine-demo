@@ -34,10 +34,10 @@ class HttpServer
     protected function handleConnection($socket)
     {
         while (true) {
-            yield waitForRead($socket);
+            yield SystemCall::waitForRead($socket);
             $clientSocket = stream_socket_accept($socket, 0);
             $connection = new Connection($clientSocket);
-            yield newTask($this->handleBuffer($connection));
+            yield SystemCall::newTask($this->handleBuffer($connection));
         }
     }
 
@@ -51,7 +51,7 @@ class HttpServer
         while(true) {
             if($connection->isClose()) {
                 $connection->close();
-                yield endTask();
+                yield SystemCall::endTask();
                 break;
             }
 
@@ -65,12 +65,12 @@ class HttpServer
 
                 if($packLen <= strlen($buffer)){
                     // 接收到一个完整的Http请求
-                    yield newTask($this->handleData($connection,substr($buffer,0,$packLen)));
+                    yield SystemCall::newTask($this->handleData($connection,substr($buffer,0,$packLen)));
                     $buffer = substr($buffer,$packLen + 1);
                 }
             }
 
-            yield waitForRead($connection->getSocket());
+            yield SystemCall::waitForRead($connection->getSocket());
             $buffer .= $connection->read(8092);
         }
     }

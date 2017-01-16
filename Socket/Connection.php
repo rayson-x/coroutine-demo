@@ -28,6 +28,7 @@ class Connection
 
     public function close()
     {
+        var_dump((int)$this->socket);
         if(!$this->close){
             fclose($this->socket);
             $this->close = true;
